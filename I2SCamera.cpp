@@ -49,12 +49,18 @@ void IRAM_ATTR I2SCamera::i2sInterrupt(void* arg)
 
 void IRAM_ATTR I2SCamera::vSyncInterrupt(void* arg)
 {
-    GPIO.status1_w1tc.val = GPIO.status1.val;
-    GPIO.status_w1tc = GPIO.status;
-    if(gpio_get_level(vSyncPin))
-    {
-      //frame done
+    // Clear GPIO interrupt status using public API where possible. Some
+    // platforms provide direct register access via GPIO.* but that may not
+    // be available in all Arduino cores. gpio_intr_disable/enable or
+    // gpio_clear_intr_status_level may be used; here we'll clear the
+    // interrupt by calling gpio_intr_disable then re-enable it. This is
+    // slightly heavier but portable across cores.
+    gpio_intr_disable(vSyncPin);
+    // if line is high, this indicates end of frame (VSYNC asserted)
+    if (gpio_get_level(vSyncPin)) {
+      // frame done - nothing to do here, just a marker
     }
+    gpio_intr_enable(vSyncPin);
 }
 
 void I2SCamera::i2sStop()

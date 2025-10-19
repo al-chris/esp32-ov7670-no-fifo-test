@@ -10,6 +10,20 @@
 #include "soc/i2s_reg.h"
 #include "soc/i2s_struct.h"
 #include "soc/io_mux_reg.h"
+#include "soc/gpio_struct.h"
+#include "soc/gpio_reg.h"
+
+// Some toolchains/cores may not expose gpio_matrix_in prototype to C++
+// files via headers visible to sketches. Provide a fallback prototype so the
+// code compiles; the actual symbol should be provided by the ESP32 core
+// libraries at link time.
+#ifdef __cplusplus
+extern "C" {
+#endif
+void gpio_matrix_in(int gpio, int signal_index, bool inverted);
+#ifdef __cplusplus
+}
+#endif
 #include "driver/gpio.h"
 #include "driver/periph_ctrl.h"
 #include "rom/lldesc.h"
