@@ -37,7 +37,7 @@ const char* password = "YOUR_WIFI_PASSWORD";
 // --- Global Objects ---
 OV7670 *camera;                       // Pointer to the camera driver object
 WiFiServer server(80);                // Web server object on port 80
-unsigned char bmpHeader; // Buffer for the BMP file header
+unsigned char bmpHeader[BMP::headerSize]; // Buffer for the BMP file header
 
 // Function to handle incoming web client requests
 void handleClient() {
@@ -91,8 +91,8 @@ void handleClient() {
         client.println();
 
         // Send the BMP header first, then the raw pixel data
-        client.write(bmpHeader, BMP::headerSize);
-        client.write(camera->frame, camera->xres * camera->yres * 2);
+  client.write((const uint8_t*)bmpHeader, BMP::headerSize);
+  client.write((const uint8_t*)camera->frame, camera->xres * camera->yres * 2);
       }
     }
   }

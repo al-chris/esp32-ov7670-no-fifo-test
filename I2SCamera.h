@@ -15,6 +15,7 @@
 #include "rom/lldesc.h"
 #include "XClk.h"
 #include "DMABuffer.h"
+#include "esp_attr.h"
 
 class I2SCamera
 {

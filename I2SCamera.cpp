@@ -95,7 +95,7 @@ bool I2SCamera::initVSync(int pin)
   vSyncPin = (gpio_num_t)pin;
   gpio_set_intr_type(vSyncPin, GPIO_INTR_POSEDGE);
   gpio_intr_enable(vSyncPin);
-  if(gpio_isr_register(&vSyncInterrupt, (void*)"vSyncInterrupt", ESP_INTR_FLAG_INTRDISABLED | ESP_INTR_FLAG_IRAM, &vSyncInterruptHandle) != ESP_OK) 
+  if(gpio_isr_register(&I2SCamera::vSyncInterrupt, (void*)"vSyncInterrupt", ESP_INTR_FLAG_INTRDISABLED | ESP_INTR_FLAG_IRAM, &vSyncInterruptHandle) != ESP_OK) 
   {
     DEBUG_PRINTLN("failed!");
     return false;
@@ -197,7 +197,7 @@ bool I2SCamera::i2sInit(const int VSYNC, const int HREF, const int PCLK, const i
     I2S0.timing.val = 0;
 
     // Allocate I2S interrupt, keep it disabled
-    esp_intr_alloc(ETS_I2S0_INTR_SOURCE, ESP_INTR_FLAG_INTRDISABLED | ESP_INTR_FLAG_LEVEL1 | ESP_INTR_FLAG_IRAM, &i2sInterrupt, NULL, &i2sInterruptHandle);
+  esp_intr_alloc(ETS_I2S0_INTR_SOURCE, ESP_INTR_FLAG_INTRDISABLED | ESP_INTR_FLAG_LEVEL1 | ESP_INTR_FLAG_IRAM, &I2SCamera::i2sInterrupt, NULL, &i2sInterruptHandle);
     return true;
 }
 
