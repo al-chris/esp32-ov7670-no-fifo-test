@@ -6,68 +6,40 @@
 #include "XClk.h"
 #include "driver/ledc.h"
 #include "driver/periph_ctrl.h"
+#include "driver/rmt.h"
 
 bool ClockEnable(int pin, int Hz)
 {
-    periph_module_enable(PERIPH_LEDC_MODULE);
+    // Use RMT peripheral to generate a stable square-wave XCLK. RMT is
+    // precise and avoids LEDC/esp_clk_tree issues on some cores.
+    rmt_config_t rmt_tx;
+    rmt_tx.rmt_mode = RMT_MODE_TX;
+    rmt_tx.channel = RMT_CHANNEL_0;
+    rmt_tx.gpio_num = (gpio_num_t)pin;
+    rmt_tx.mem_block_num = 1;
+    // Use high-resolution clock (clk_div = 1 -> 80MHz base)
+    rmt_tx.clk_div = 1;
+    rmt_tx.tx_config.loop_en = true;
+    rmt_tx.tx_config.carrier_en = false;
+    rmt_tx.tx_config.idle_level = RMT_IDLE_LEVEL_LOW;
+    rmt_tx.tx_config.carrier_level = RMT_CARRIER_LEVEL_HIGH;
 
-    ledc_timer_config_t timer_conf;
-    timer_conf.speed_mode = LEDC_HIGH_SPEED_MODE;
-    timer_conf.timer_num = LEDC_TIMER_0;
+    if (rmt_config(&rmt_tx) != ESP_OK) return false;
+    if (rmt_driver_install(rmt_tx.channel, 0, 0) != ESP_OK) return false;
 
-    // Try to choose a duty resolution that allows the requested frequency.
-    // APB clock is typically 80 MHz on ESP32.
     const uint32_t APB_CLK = 80000000UL;
-    bool configured = false;
-    esp_err_t err = ESP_OK;
-    for (int bits = 1; bits <= 15; ++bits) {
-        // maximum achievable frequency with this resolution is APB_CLK / (1 << bits)
-        uint32_t maxFreq = (APB_CLK >> bits);
-        if ((uint32_t)Hz <= maxFreq) {
-            timer_conf.duty_resolution = (ledc_timer_bit_t)bits;
-            timer_conf.freq_hz = Hz;
-            esp_err_t err = ledc_timer_config(&timer_conf);
-            if (err == ESP_OK) {
-                configured = true;
-                break;
-            }
-        }
-    }
+    // ticks for half period: APB_CLK / (clk_div * freq * 2)
+    uint32_t ticks = (APB_CLK) / (rmt_tx.clk_div * (uint32_t)Hz * 2U);
+    if (ticks < 1) ticks = 1;
+    if (ticks > 0x7fff) ticks = 0x7fff; // limit for safety
 
-    // If not configured, try the lowest resolution with the highest possible freq
-    if (!configured) {
-        timer_conf.duty_resolution = LEDC_TIMER_1_BIT;
-        timer_conf.freq_hz = APB_CLK >> 1; // best-effort fallback
-        if (ledc_timer_config(&timer_conf) == ESP_OK) {
-            configured = true;
-        }
-    }
+    rmt_item32_t items[2];
+    items[0].level0 = 1; items[0].duration0 = ticks; items[0].level1 = 0; items[0].duration1 = ticks;
+    items[1] = items[0];
 
-    if (!configured) {
-        return false;
-    }
+    // Write items in loop mode (loop_en set above)
+    if (rmt_write_items(rmt_tx.channel, items, 2, true) != ESP_OK) return false;
 
-    // Debug info: report selected timer settings (helpful on serial monitor)
-    // Serial may not be initialized yet in all contexts; guard with an existence
-    // check for the symbol to avoid compile-time dependency in non-Arduino builds.
-#ifdef Serial
-    Serial.printf("XCLK: LEDC configured freq=%u duty_bits=%u\n", (unsigned)timer_conf.freq_hz, (unsigned)timer_conf.duty_resolution);
-#endif
-
-    ledc_channel_config_t ch_conf;
-    ch_conf.channel = LEDC_CHANNEL_0;
-    ch_conf.timer_sel = LEDC_TIMER_0;
-    ch_conf.intr_type = LEDC_INTR_DISABLE;
-    ch_conf.duty = 1;
-    ch_conf.speed_mode = LEDC_HIGH_SPEED_MODE;
-    ch_conf.gpio_num = pin;
-    
-    ch_conf.hpoint = 0;//added by me
-    
-    err = ledc_channel_config(&ch_conf);
-    if (err != ESP_OK) {
-        return false;
-    }
     return true;
 }
 

@@ -5,7 +5,8 @@
 OV7670::OV7670(Mode m, const int SIOD, const int SIOC, const int VSYNC, const int HREF, const int XCLK, const int PCLK, const int D0, const int D1, const int D2, const int D3, const int D4, const int D5, const int D6, const int D7)
   :i2c(SIOD, SIOC)
 {
-  ClockEnable(XCLK, 20000000); //base is 80MHz
+  // Use an 8 MHz XCLK which is well supported by LEDC on most ESP32 cores and works for OV7670.
+  ClockEnable(XCLK, 8000000); //base is 80MHz
   
   DEBUG_PRINT("Waiting for VSYNC...");  
   pinMode(VSYNC, INPUT);
