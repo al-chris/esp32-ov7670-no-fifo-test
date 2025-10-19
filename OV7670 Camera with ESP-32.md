@@ -125,14 +125,23 @@ The project is developed using the Arduino IDE, which provides a convenient fram
 
 While other OV7670 libraries exist, such as Adafruit\_OV7670 or Arduino\_OV767X, they are often designed for different microcontroller architectures (like ARM SAMD) and do not implement the specific I2S/DMA capture method required for high-speed, non-FIFO operation on the ESP32.30
 
-#### **3.2 Phase 1: Generating the Heartbeat \- The XCLK Signal**
 
-The OV7670 requires a stable master clock to operate. The firmware accomplishes this by configuring the ESP32's LEDC peripheral as a high-frequency PWM generator. The ClockEnable(int pin, int Hz) function encapsulates this process.13
+#### **3.2 Phase 1: Generating the Heartbeat - The XCLK Signal (updated)**
 
-1. **Timer Configuration (ledc\_timer\_config):** A timer is configured to define the fundamental frequency of the output signal. The freq\_hz parameter is set to the desired XCLK frequency (e.g., 20,000,000 for 20 MHz). A critical detail is setting the timer's resolution (bit\_num) to 1 bit. This means the duty cycle can only be 0, 1, or 2 ($2^1$).  
-2. **Channel Configuration (ledc\_channel\_config):** A channel is configured to route the timer's output to a specific GPIO pin (gpio\_num). The duty parameter is set to 1\. With a 1-bit resolution, a duty value of 1 corresponds to a 50% duty cycle ($1/2$), producing a perfect square wave ideal for a clock signal.
+The OV7670 requires a stable master clock (XCLK) to operate. In this project the implementation originally used the LEDC peripheral for XCLK generation, but that approach proved brittle across some ESP32 core versions and hardware variants due to internal clock-tree differences. The current implementation uses the RMT peripheral to generate a continuous, high-precision square wave for XCLK.
 
-This hardware-based approach ensures that a stable XCLK is generated continuously without consuming any CPU resources once configured.
+Why RMT?
+
+- RMT provides deterministic timing and is less sensitive to IDF/Arduino core clock-source changes than LEDC when used for very high frequencies. 
+- RMT supports looped transmission of simple timing items which makes it ideal for generating a stable square wave without CPU overhead.
+
+How it works now:
+
+1. The `ClockEnable(int pin, int Hz)` function configures an RMT TX channel bound to the chosen `pin`.
+2. It computes RMT ticks for the half-period of the requested frequency using the APB clock (80 MHz) and the configured `clk_div`.
+3. Two identical `rmt_item32_t` items are written and the peripheral is started in loop mode, producing a continuous square wave at the requested Hz.
+
+This approach produces a reliable XCLK while avoiding the LEDC/esp_clk_tree runtime errors that were observed on some cores. If extreme frequencies are requested, the code will clamp values to safe RMT tick ranges and fall back to lower frequencies when necessary.
 
 #### **3.3 Phase 2: Configuration and Control via SCCB**
 
