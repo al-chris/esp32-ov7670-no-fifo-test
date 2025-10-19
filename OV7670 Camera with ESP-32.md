@@ -100,7 +100,7 @@ Based on the analysis above and validated by successful community projects, the 
 
 The following schematic illustrates the physical connections detailed in Table 2\. Special attention must be paid to power delivery and signal integrity.
 
-\!([https://i.imgur.com/8QjL4yW.png](https://i.imgur.com/8QjL4yW.png))
+![Schematic](data/Schematic-no-fifo.PNG)
 
 * **Power Supply:** Both the ESP32 and the OV7670 module operate on a 3.3V logic level. Connecting any OV7670 pin to a 5V source will cause permanent damage.5 The 3.3V output pin from a standard ESP32 development board is the correct power source.  
 * **Power Integrity:** The ESP32's Wi-Fi radio can draw significant current in short bursts, causing transient voltage drops on the 3.3V rail.26 If not properly managed, this electrical noise can couple into the camera's sensitive analog circuitry and manifest as noise or banding in the captured image. To mitigate this, it is critical to place power supply decoupling capacitors as close as physically possible to the OV7670 module's VCC and GND pins. A combination of a 10µF electrolytic or ceramic capacitor (for low-frequency noise) and a 0.1µF ceramic capacitor (for high-frequency noise) is recommended.20  
